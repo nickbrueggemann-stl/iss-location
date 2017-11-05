@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Real Time ISS Location</title>
+<style>
+  html, body, #viewDiv {
+    padding: 0;
+    margin: 0;
+    height: 100%;
+    width: 100%;
+  }
+</style>
+<link rel="stylesheet" href="https://js.arcgis.com/4.3/esri/css/main.css">
+<script src="https://js.arcgis.com/4.3/"></script>
+<script>
+require([
+  "esri/Map",
+  "esri/views/SceneView",
+  "esri/Graphic",
+  "esri/geometry/Point",
+  "esri/layers/GraphicsLayer",
+  "esri/symbols/SimpleMarkerSymbol",
+  "esri/geometry/SpatialReference",
+  "dojo/request",
+  "dojo/domReady!"
+], function(Map, SceneView, Graphic, Point, GraphicsLayer, SimpleMarkerSymbol, SpatialReference, request){
+  var map = new Map({
+    basemap: "streets",
+    ground: "world-elevation"
+  });
+  var view = new SceneView({
+    container: "viewDiv",     
+    map: map,                
+    scale: 50000000,          
+    center: [-101.17, 21.78]  
+  });
+
+  var graphicsLayer = new GraphicsLayer();
+  map.add(graphicsLayer);
+
+  var groundLocation = new GraphicsLayer();
+  map.add(groundLocation);
+
+    setInterval(function() {
+      request.get("/iss-location", {}).then(function (data) {
+        var issDetails = JSON.parse(data);
+
+        addGroundLocation(issDetails.latitude, issDetails.longitude);
+
+          var point = new Point({
+              x: issDetails.longitude,
+              y: issDetails.latitude,
+              z: issDetails.altitude * 1000
+          }, new SpatialReference({ wkid:4326  })),
+
+
+          markerSymbol = new SimpleMarkerSymbol({
+          color: [226, 119, 40],
+
+          outline: { // autocasts as new SimpleLineSymbol()
+            color: [255, 255, 255],
+            width: 2
+          }
+          });
+
+          var pointGraphic = new Graphic({
+            geometry: point,
+            symbol: markerSymbol
+          });
+
+          graphicsLayer.add(pointGraphic);
+
+          if(graphicsLayer.graphics.length > 500) {
+            graphicsLayer.graphics.shift();
+          }
+
+      }, function (error) {
+
+      });
+    }, 3000);
+
+    function addGroundLocation(lat, lon) {
+
+      groundLocation.graphics.removeAll();
+
+      var point = new Point({
+              x: lon,
+              y: lat,
+          }, new SpatialReference({ wkid:4326 })),
+
+          markerSymbol = new SimpleMarkerSymbol({
+            color: [0, 153, 0],
+
+            outline: { // autocasts as new SimpleLineSymbol()
+              color: [255, 255, 255],
+              width: 2
+            }
+          });
+
+          var pointGraphic = new Graphic({
+            geometry: point,
+            symbol: markerSymbol
+          });
+
+          groundLocation.add(pointGraphic);
+    }
+
+});
+</script>
+</head>
+<body>
+  <div id="viewDiv"></div>
+</body>
+</html>
